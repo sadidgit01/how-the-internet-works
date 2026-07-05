@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Request Lifecycle</title>
+<style>
+  :root{
+    --bg:#0a0e17;
+    --card-bg:rgba(255,255,255,0.045);
+    --card-bg-hover:rgba(255,255,255,0.075);
+    --card-border:rgba(255,255,255,0.09);
+    --text:#e7eaf1;
+    --text-dim:#95a0b3;
+    --text-dimmer:#69748a;
+    --nav-bg:rgba(10,14,23,0.75);
+    --eyebrow-color:#a5b4fc;
+    --eyebrow-bg:rgba(167,139,250,0.12);
+    --eyebrow-border:rgba(167,139,250,0.25);
+    --hero-grad:linear-gradient(120deg,#fff, #b8c2d9 60%, #8892a8);
+    --label-neutral:#9aa5b8;
+    --toggle-accent:#7c9eff;
+
+    --client:#60a5fa;
+    --network:#22d3ee;
+    --security:#34d399;
+    --edge:#fb923c;
+    --routing:#a78bfa;
+    --server:#f472b6;
+    --data:#facc15;
+    --async:#f87171;
+    --response:#2dd4bf;
+
+    --netflix:#e50914;
+  }
+
+  body[data-theme="light"]{
+    --bg:#f7f8fb;
+    --card-bg:#ffffff;
+    --card-bg-hover:#f2f4f8;
+    --card-border:#e3e6ee;
+    --text:#12151c;
+    --text-dim:#454f61;
+    --text-dimmer:#5b6478;
+    --nav-bg:rgba(255,255,255,0.82);
+    --eyebrow-color:#5b21b6;
+    --eyebrow-bg:rgba(124,58,237,0.08);
+    --eyebrow-border:rgba(124,58,237,0.28);
+    --hero-grad:linear-gradient(120deg,#12151c, #333e52 60%, #1e293b);
+    --label-neutral:#334155;
+    --toggle-accent:#2563eb;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(1000px 600px at 15% -10%, rgba(96,165,250,0.12), transparent 60%),
+      radial-gradient(1000px 700px at 90% 10%, rgba(244,114,182,0.10), transparent 60%),
+      radial-gradient(1200px 800px at 50% 100%, rgba(229,9,20,0.06), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    transition:background .25s ease, color .25s ease;
+  }
+
+  /* ---------- NAV ---------- */
+  .topnav{
+    position:sticky; top:0; z-index:50;
+    background:var(--nav-bg);
+    backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--card-border);
+  }
+  .topnav-inner{
+    max-width:980px; margin:0 auto;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 24px; gap:12px;
+  }
+  .brand{display:flex; align-items:center; gap:9px; font-weight:700; letter-spacing:0.2px; font-size:15px;}
+  .brand-dot{width:9px;height:9px;border-radius:50%;background:linear-gradient(135deg,#60a5fa,#f472b6); box-shadow:0 0 10px rgba(167,139,250,0.7);}
+  .nav-right{display:flex; align-items:center; gap:6px;}
+  .nav-links{display:flex; gap:6px;}
+  .nav-links a{
+    color:var(--text-dim); text-decoration:none; font-size:13.5px; font-weight:600;
+    padding:7px 13px; border-radius:20px; transition:all .2s ease;
+  }
+  .nav-links a:hover{color:var(--text); background:var(--card-bg-hover);}
+  #themeBtn{
+    background:var(--card-bg); border:1px solid var(--card-border); color:var(--text);
+    width:34px; height:34px; border-radius:50%; cursor:pointer; font-size:15px;
+    display:flex; align-items:center; justify-content:center; transition:all .2s ease; margin-left:4px;
+  }
+  #themeBtn:hover{background:var(--card-bg-hover);}
+  .progress-track{height:2px; width:100%; background:rgba(120,120,140,0.15);}
+  .progress-fill{height:100%; width:0%; background:linear-gradient(90deg,#60a5fa,#a78bfa,#f472b6,var(--netflix)); transition:width .1s linear;}
+
+  /* ---------- HERO ---------- */
+  .hero{max-width:820px; margin:0 auto; padding:64px 24px 20px; text-align:center;}
+  .eyebrow{
+    display:inline-block; font-size:11.5px; font-weight:700; letter-spacing:2px;
+    color:var(--eyebrow-color); background:var(--eyebrow-bg); border:1px solid var(--eyebrow-border);
+    padding:5px 14px; border-radius:20px; margin-bottom:20px;
+  }
+  .hero h1{
+    font-size:clamp(28px,4.5vw,42px); line-height:1.15; margin:0 0 16px;
+    background:var(--hero-grad);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    font-weight:800; letter-spacing:-0.5px;
+  }
+  .hero p{color:var(--text-dim); font-size:16px; line-height:1.65; max-width:620px; margin:0 auto;}
+
+  /* ---------- LEGEND ---------- */
+  .legend{
+    max-width:920px; margin:34px auto 8px; padding:0 24px;
+    display:flex; flex-wrap:wrap; gap:9px; justify-content:center;
+  }
+  .chip{
+    display:flex; align-items:center; gap:7px;
+    font-size:12px; font-weight:600; color:var(--text-dim);
+    background:var(--card-bg); border:1px solid var(--card-border);
+    padding:7px 13px; border-radius:20px;
+  }
+  .chip .sw{width:8px;height:8px;border-radius:50%;}
+
+  /* ---------- SECTIONS ---------- */
+  .section{max-width:820px; margin:0 auto; padding:70px 24px 30px;}
+  .section-head{margin-bottom:44px;}
+  .section-head .tag{
+    font-size:11.5px; font-weight:700; letter-spacing:2px; color:var(--text-dimmer);
+    text-transform:uppercase; margin-bottom:10px; display:block;
+  }
+  .section-head h2{font-size:clamp(22px,3vw,30px); margin:0 0 12px; font-weight:800; letter-spacing:-0.3px;}
+  .section-head p{color:var(--text-dim); font-size:15px; line-height:1.7; max-width:640px;}
+
+  /* ---------- TIMELINE ---------- */
+  .timeline{position:relative; padding-left:54px;}
+  .timeline::before{
+    content:''; position:absolute; left:19px; top:6px; bottom:6px; width:2px;
+    background:linear-gradient(to bottom, var(--client), var(--network), var(--security), var(--edge), var(--routing), var(--server), var(--data), var(--async), var(--response));
+    opacity:0.35; border-radius:2px;
+  }
+
+  .step{
+    position:relative; margin-bottom:22px;
+    transition:opacity .5s ease, transform .5s ease;
+  }
+  body.anim-ready .step{opacity:0; transform:translateY(14px);}
+  body.anim-ready .step.in-view{opacity:1; transform:translateY(0);}
+
+  .badge{
+    position:absolute; left:-54px; top:0;
+    width:40px; height:40px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:14.5px; color:#0a0e17;
+    background:var(--c); box-shadow:0 0 0 4px var(--bg), 0 0 16px -2px var(--c);
+  }
+
+  .card{
+    background:var(--card-bg); border:1px solid var(--card-border); border-radius:14px;
+    padding:18px 20px 20px; transition:background .2s ease, border-color .2s ease;
+    border-left:3px solid var(--c);
+  }
+  .card:hover{background:var(--card-bg-hover);}
+
+  .card-top{display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap;}
+  .card-icon{font-size:18px; line-height:1;}
+  .card-title{font-weight:700; font-size:15.5px; color:var(--text);}
+  .card-sub{font-size:11.5px; color:var(--text-dimmer); font-weight:600;}
+  .card-cat{
+    font-size:10px; font-weight:800; letter-spacing:1.2px; text-transform:uppercase;
+    color:#0a0e17; background:var(--c);
+    padding:3px 9px; border-radius:10px; margin-left:auto;
+  }
+  .card-desc{color:var(--text-dim); font-size:14px; line-height:1.65; margin:0;}
+  .card-desc .quote{color:var(--text); font-style:italic;}
+  .card ul.sub{margin:10px 0 0; padding-left:18px; color:var(--text-dim); font-size:14px; line-height:1.7;}
+  .card ul.sub li{margin-bottom:3px;}
+  .card ul.sub li::marker{color:var(--c);}
+
+  /* ---------- EXPANDABLE DETAIL (Part 1 accordions) ---------- */
+  details.expand-details{margin-top:2px;}
+  summary.expand-toggle{
+    cursor:pointer; font-size:12.5px; font-weight:700; color:var(--toggle-accent);
+    margin-top:12px; display:inline-flex; align-items:center; gap:5px;
+    list-style:none; user-select:none;
+  }
+  summary.expand-toggle::-webkit-details-marker{display:none;}
+  summary.expand-toggle .chevron{transition:transform .2s ease; display:inline-block; font-size:14px;}
+  details[open] > summary.expand-toggle .chevron{transform:rotate(90deg);}
+  .expand-content{margin-top:14px; padding-top:14px; border-top:1px dashed var(--card-border);}
+  .exp-block{margin-bottom:16px;}
+  .exp-block.last{margin-bottom:0;}
+  .exp-label{
+    display:block; font-size:10px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase;
+    margin-bottom:7px; color:var(--label-neutral);
+  }
+  .exp-block p{margin:0; color:var(--text-dim); font-size:13.5px; line-height:1.7;}
+  .exp-list{margin:0; padding-left:0; list-style:none; display:flex; flex-direction:column; gap:9px;}
+  .exp-list li{display:flex; gap:10px; align-items:flex-start; font-size:13px; line-height:1.65; color:var(--text-dim);}
+  .exp-list li .num{
+    flex-shrink:0; width:18px; height:18px; border-radius:5px; margin-top:2px;
+    background:var(--c);
+    border:1px solid var(--c);
+    color:#0a0e17; font-size:9.5px; font-weight:800; display:flex; align-items:center; justify-content:center;
+    font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+  }
+  .exp-example{
+    background:rgba(120,130,150,0.08); border:1px solid var(--card-border); border-radius:8px;
+    padding:11px 14px; font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+    font-size:12.5px; color:var(--text-dim); line-height:1.6;
+  }
+
+  /* ---------- CODE BLOCKS (Netflix section) ---------- */
+  .code-window{
+    margin-top:13px; border-radius:10px; overflow:hidden;
+    background:#0b0f1a; border:1px solid rgba(255,255,255,0.08);
+  }
+  .code-header{display:flex; align-items:center; gap:6px; padding:9px 13px; background:rgba(255,255,255,0.035);}
+  .dot{width:9px; height:9px; border-radius:50%;}
+  .dot.r{background:#ff5f56;} .dot.y{background:#ffbd2e;} .dot.g{background:#27c93f;}
+  .code-label{margin-left:6px; font-size:11.5px; color:#69748a; font-family:ui-monospace,SFMono-Regular,Consolas,monospace;}
+  pre.code-body{
+    margin:0; padding:15px 17px; overflow-x:auto;
+    font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",Menlo,monospace;
+    font-size:12.8px; line-height:1.65; color:#c9d1d9;
+  }
+  .kw{color:#ff8fab; font-weight:600;}
+  .str{color:#9ecbff;}
+  .com{color:#6b7484; font-style:italic;}
+  .fn{color:#d2a8ff;}
+
+  /* ---------- DIVIDER ---------- */
+  .divider{
+    max-width:980px; margin:20px auto; padding:56px 24px;
+    text-align:center; position:relative;
+  }
+  .divider-line{height:1px; background:linear-gradient(90deg,transparent, var(--card-border), transparent); margin-bottom:40px;}
+  .divider h2{font-size:clamp(24px,4vw,34px); margin:0 0 10px; font-weight:800;}
+  .divider p{color:var(--text-dim); font-size:15px; margin:0 0 22px;}
+  .netflix-word{
+    display:inline-block; font-weight:900; font-size:22px; letter-spacing:1px;
+    color:var(--netflix); text-shadow:0 0 24px rgba(229,9,20,0.35);
+    border:1px solid rgba(229,9,20,0.4); padding:8px 22px; border-radius:8px;
+    background:rgba(229,9,20,0.08);
+  }
+
+  /* ---------- NETFLIX THEME OVERRIDES ---------- */
+  .netflix-theme .timeline::before{opacity:0.5;}
+  .netflix-theme .card{border-left:3px solid var(--c);}
+  .netflix-theme .section-head .tag{color:#ff6b74;}
+
+  .stat-box{
+    max-width:820px; margin:36px auto 0; padding:22px 26px;
+    background:linear-gradient(135deg, rgba(229,9,20,0.10), rgba(167,139,250,0.06));
+    border:1px solid rgba(229,9,20,0.28); border-radius:14px;
+    display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  }
+  .stat-box .label{font-size:13px; color:var(--text-dim); font-weight:600;}
+  .stat-box .value{font-size:26px; font-weight:800; color:var(--text);}
+
+  footer{
+    max-width:820px; margin:0 auto; padding:50px 24px 80px; text-align:center;
+    color:var(--text-dimmer); font-size:13px; line-height:1.8; border-top:1px solid var(--card-border); margin-top:40px;
+  }
+  footer b{color:var(--text-dim);}
+
+  #toTop{
+    position:fixed; bottom:22px; right:22px; z-index:60;
+    width:42px; height:42px; border-radius:50%;
+    background:var(--card-bg); border:1px solid var(--card-border);
+    color:var(--text); font-size:16px; cursor:pointer;
+    backdrop-filter:blur(8px);
+    opacity:0; pointer-events:none; transform:translateY(8px);
+    transition:all .25s ease;
+  }
+  #toTop.show{opacity:1; pointer-events:auto; transform:translateY(0);}
+  #toTop:hover{background:var(--card-bg-hover);}
+
+  @media (max-width:640px){
+    .timeline{padding-left:44px;}
+    .badge{left:-44px; width:34px; height:34px; font-size:13px;}
+    .timeline::before{left:16px;}
+    .card{padding:15px 15px 17px;}
+    .card-cat{margin-left:0;}
+    .nav-links a{padding:6px 9px; font-size:12.5px;}
+    .brand span.full{display:none;}
+  }
+</style>
+</head>
+<body>
+
+  <nav class="topnav">
+    <div class="topnav-inner">
+      <div class="brand"><span class="brand-dot"></span><span class="full">Request&nbsp;Lifecycle</span></div>
+      <div class="nav-right">
+        <div class="nav-links">
+          <a href="#overview">Overview</a>
+          <a href="#netflix">Netflix Example</a>
+        </div>
+        <button id="themeBtn" title="Toggle theme">☀️</button>
+      </div>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  </nav>
+
+  <header class="hero">
+    <span class="eyebrow">SYSTEM DESIGN · REQUEST LIFECYCLE</span>
+    <h1>What Really Happens Between a Click and a Response</h1>
+    <p>Every request — a search, a login, a page load — travels through roughly 17 systems before you ever see the result. Here's that journey broken down layer by layer, then rebuilt with a real, concrete example: Netflix, searching for a show.</p>
+  </header>
+
+  <div class="legend">
+    <div class="chip"><span class="sw" style="background:var(--client)"></span>Client</div>
+    <div class="chip"><span class="sw" style="background:var(--network)"></span>Network</div>
+    <div class="chip"><span class="sw" style="background:var(--security)"></span>Security</div>
+    <div class="chip"><span class="sw" style="background:var(--edge)"></span>Edge</div>
+    <div class="chip"><span class="sw" style="background:var(--routing)"></span>Routing</div>
+    <div class="chip"><span class="sw" style="background:var(--server)"></span>Server</div>
+    <div class="chip"><span class="sw" style="background:var(--data)"></span>Data</div>
+    <div class="chip"><span class="sw" style="background:var(--async)"></span>Async</div>
+    <div class="chip"><span class="sw" style="background:var(--response)"></span>Response</div>
+  </div>
+
+  <!-- ================= PART 1: OVERVIEW ================= -->
+  <section class="section" id="overview">
+    <div class="section-head">
+      <span class="tag">Part 1</span>
+      <h2>The Universal Request Lifecycle</h2>
+      <p>This is the generic path almost every web request takes. Click "Show details" on any layer for the full breakdown — what it is, how it works, key details, and a real example.</p>
+    </div>
+
+    <div class="timeline">
+
+      <div class="step" style="--c:var(--client)">
+        <div class="badge">1</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">🌐</span><span class="card-title">BROWSER</span><span class="card-sub">Client</span><span class="card-cat">Client</span></div>
+          <p class="card-desc">Initiates the HTTP request</p>
+          <details class="expand-details">
+            <summary class="expand-toggle">Show details <span class="chevron">›</span></summary>
+            <div class="expand-content">
+              <div class="exp-block"><span class="exp-label">What is it?</span><p>The browser (Chrome, Firefox, Safari, etc.) is the HTTP client. It's responsible for everything the user sees and interacts with.</p></div>
+              <div class="exp-block"><span class="exp-label">How it works</span><p>When you type a URL or click a link, the browser parses the URL into protocol (https), hostname (example.com), path (/page), and query params. It checks its own DNS cache, local hosts file, and OS cache first before making any network call.</p></div>
+              <div class="exp-block">
+                <span class="exp-label">Key details</span>
+                <ol class="exp-list">
+                  <li><span class="num">1</span>Builds an HTTP/1.1, HTTP/2, or HTTP/3 request with method (GET/POST/etc.), headers (Accept, Cookie, Authorization), and body.</li>
+                  <li><span class="num">2</span>Manages its own local cache: checks Cache-Control, ETag, and Last-Modified headers from previous responses.</li>
+                  <li><span class="num">3</span>Enforces Same-Origin Policy (SOP) and CORS restrictions — it will block responses from foreign origins unless they explicitly allow it.</li>
+                  <li><span class="num">4</span>Handles rendering pipeline: after receiving HTML, it builds DOM, then CSSOM, then Render Tree, then paints pixels.</li>
+                </ol>
+              </div>
+              <div class="exp-block last"><span class="exp-label">Real example</span><div class="exp-example">Chrome checks localStorage, service workers, and memory cache before sending a single byte over the network.</div></div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--network)">
+        <div class="badge">2</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">🔍</span><span class="card-title">DNS LOOKUP</span><span class="card-sub">Domain → IP</span><span class="card-cat">Network</span></div>
+          <p class="card-desc">Translates domain name to IP address</p>
+          <details class="expand-details">
+            <summary class="expand-toggle">Show details <span class="chevron">›</span></summary>
+            <div class="expand-content">
+              <div class="exp-block"><span class="exp-label">What is it?</span><p>DNS (Domain Name System) is the internet's phone book. It translates human-readable domain names like example.com into machine-readable IP addresses like 93.184.216.34.</p></div>
+              <div class="exp-block"><span class="exp-label">How it works</span><p>DNS resolution is recursive. If your OS cache doesn't have the answer, it asks a Recursive Resolver (usually your ISP). The resolver walks the DNS tree: Root Nameservers → TLD Nameservers (.com) → Authoritative Nameservers (example.com) → gets the IP.</p></div>
+              <div class="exp-block">
+                <span class="exp-label">Key details</span>
+                <ol class="exp-list">
+                  <li><span class="num">1</span>DNS lookup can add 20–120ms latency on a cold start. Browsers cache DNS records per their TTL (Time-To-Live).</li>
+                  <li><span class="num">2</span>Modern apps use DNS-based load balancing — example.com resolves to different IPs in different regions (GeoDNS).</li>
+                  <li><span class="num">3</span>DNSSEC adds cryptographic signatures to DNS records to prevent cache poisoning attacks.</li>
+                  <li><span class="num">4</span>DNS over HTTPS (DoH) encrypts DNS queries so ISPs can't see which domains you're visiting.</li>
+                </ol>
+              </div>
+              <div class="exp-block last"><span class="exp-label">Real example</span><div class="exp-example">example.com → Resolver → Root (.) → .com TLD → example.com authoritative → 93.184.216.34</div></div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--network)">
+        <div class="badge">3</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">🤝</span><span class="card-title">TCP HANDSHAKE</span><span class="card-sub">Connection Setup</span><span class="card-cat">Network</span></div>
+          <p class="card-desc">Establishes reliable connection (3-way handshake)</p>
+          <details class="expand-details">
+            <summary class="expand-toggle">Show details <span class="chevron">›</span></summary>
+            <div class="expand-content">
+              <div class="exp-block"><span class="exp-label">What is it?</span><p>TCP (Transmission Control Protocol) is the reliable, ordered, error-checked transport layer protocol. Before any HTTP data flows, a TCP connection must be established.</p></div>
+              <div class="exp-block"><span class="exp-label">How it works</span><p>The 3-way handshake: (1) Client sends SYN packet — "I want to connect". (2) Server replies with SYN-ACK — "Okay, I'm ready". (3) Client sends ACK — "Great, let's go". Now the connection is open. This costs one full round-trip time (RTT).</p></div>
+              <div class="exp-block">
+                <span class="exp-label">Key details</span>
+                <ol class="exp-list">
+                  <li><span class="num">1</span>Each TCP packet has a sequence number. The receiver sends ACKs. Lost packets are automatically retransmitted.</li>
+                  <li><span class="num">2</span>TCP uses flow control (receiver window) and congestion control (slow start, AIMD) to avoid overwhelming the network.</li>
+                  <li><span class="num">3</span>HTTP/2 multiplexes multiple requests over a single TCP connection. HTTP/3 uses QUIC (UDP-based) to eliminate head-of-line blocking.</li>
+                  <li><span class="num">4</span>TCP connection pooling (Keep-Alive) reuses open connections across multiple requests to avoid repeated handshakes.</li>
+                </ol>
+              </div>
+              <div class="exp-block last"><span class="exp-label">Real example</span><div class="exp-example">SYN → SYN-ACK → ACK adds ~1 RTT (e.g., 50ms). HTTP/3 eliminates this with 0-RTT resumption.</div></div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--security)">
+        <div class="badge">4</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">🔐</span><span class="card-title">TLS HANDSHAKE</span><span class="card-sub">HTTPS Encryption</span><span class="card-cat">Security</span></div>
+          <p class="card-desc">Negotiates encryption (adds ~1 RTT for security)</p>
+          <details class="expand-details">
+            <summary class="expand-toggle">Show details <span class="chevron">›</span></summary>
+            <div class="expand-content">
+              <div class="exp-block"><span class="exp-label">What is it?</span><p>TLS (Transport Layer Security) encrypts all data between client and server. Without it, anyone on the network can read your passwords and data (plain HTTP). HTTPS = HTTP over TLS.</p></div>
+              <div class="exp-block"><span class="exp-label">How it works</span><p>TLS 1.3 handshake: Client sends ClientHello with supported cipher suites. Server replies with ServerHello, certificate, and key share. Client verifies certificate against trusted CA list, sends Finished. Both derive session keys. Handshake done in 1 RTT.</p></div>
+              <div class="exp-block">
+                <span class="exp-label">Key details</span>
+                <ol class="exp-list">
+                  <li><span class="num">1</span>The server's SSL/TLS certificate contains its public key, signed by a trusted Certificate Authority (CA) like Let's Encrypt.</li>
+                  <li><span class="num">2</span>Asymmetric encryption (RSA/ECDH) is used only during handshake to exchange a shared secret. All actual data uses symmetric AES (much faster).</li>
+                  <li><span class="num">3</span>TLS Session Resumption (Session IDs or Session Tickets) allows subsequent connections to skip the full handshake — 0-RTT.</li>
+                  <li><span class="num">4</span>HSTS (HTTP Strict Transport Security) header forces browsers to always use HTTPS for a domain, preventing downgrade attacks.</li>
+                </ol>
+              </div>
+              <div class="exp-block last"><span class="exp-label">Real example</span><div class="exp-example">Bank login: your password is AES-256 encrypted before leaving your browser. Even your ISP sees gibberish.</div></div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--security)">
+        <div class="badge">5</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">🛡️</span><span class="card-title">FIREWALL / WAF</span><span class="card-sub">Edge Security</span><span class="card-cat">Security</span></div>
+          <p class="card-desc">Blocks malicious traffic before it reaches your servers</p>
+          <details class="expand-details">
+            <summary class="expand-toggle">Show details <span class="chevron">›</span></summary>
+            <div class="expand-content">
+              <div class="exp-block"><span class="exp-label">What is it?</span><p>A Firewall filters packets based on rules (IP, port, protocol). A WAF (Web Application Firewall) operates at Layer 7 (HTTP) and understands web attacks like SQL injection and XSS.</p></div>
+              <div class="exp-block"><span class="exp-label">How it works</span><p>Network Firewall: stateless (each packet independently evaluated) or stateful (tracks connection state). WAF: inspects HTTP headers, URLs, body content against attack signatures and regex patterns. Modern WAFs use ML models to detect anomalies.</p></div>
+              <div class="exp-block">
+                <span class="exp-label">Key details</span>
+                <ol class="exp-list">
+                  <li><span class="num">1</span>Blocks known attack patterns: SQL injection (DROP TABLE), XSS (&lt;script&gt;), CSRF tokens, path traversal (../../etc/passwd).</li>
+                  <li><span class="num">2</span>Rate limiting at this layer: if IP sends &gt;1000 req/min, it gets blocked or challenged with a CAPTCHA (Cloudflare, AWS WAF).</li>
+                  <li><span class="num">3</span>Geo-blocking: can block all traffic from specific countries or only allow certain regions.</li>
+                  <li><span class="num">4</span>DDoS protection: absorbs and scrubs volumetric attacks (millions of packets/sec) before they hit origin servers.</li>
+                </ol>
+              </div>
+              <div class="exp-block last"><span class="exp-label">Real example</span><div class="exp-example">Cloudflare WAF blocks 57 billion threats per day before they reach origin servers.</div></div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--edge)">
+        <div class="badge">6</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">☁️</span><span class="card-title">CDN / EDGE</span><span class="card-sub">Content Delivery</span><span class="card-cat">Edge</span></div>
+          <p class="card-desc">Serves static assets from servers near the user</p>
+          <details class="expand-details">
+            <summary class="expand-toggle">Show details <span class="chevron">›</span></summary>
+            <div class="expand-content">
+              <div class="exp-block"><span class="exp-label">What is it?</span><p>A CDN (Content Delivery Network) is a globally distributed network of servers (Points of Presence / PoPs) that cache and serve static content from locations geographically close to users.</p></div>
+              <div class="exp-block"><span class="exp-label">How it works</span><p>When a user requests example.com/logo.png: CDN edge node checks if it has a fresh cached copy. If yes → cache hit, serves immediately (5-20ms). If no → cache miss, fetches from origin, caches it, then serves. Subsequent users get the cached version.</p></div>
+              <div class="exp-block">
+                <span class="exp-label">Key details</span>
+                <ol class="exp-list">
+                  <li><span class="num">1</span>Cache-Control headers control CDN behavior: max-age, s-maxage, no-cache, no-store, stale-while-revalidate.</li>
+                  <li><span class="num">2</span>CDN also handles SSL termination at the edge — reducing latency by ending TLS close to the user.</li>
+                  <li><span class="num">3</span>Edge computing (Cloudflare Workers, Lambda@Edge) allows running JavaScript at the CDN edge for A/B testing, auth, personalization.</li>
+                  <li><span class="num">4</span>CDN providers: Cloudflare, Akamai, AWS CloudFront, Fastly, BunnyCDN. They have 100s of PoPs worldwide.</li>
+                </ol>
+              </div>
+              <div class="exp-block last"><span class="exp-label">Real example</span><div class="exp-example">Netflix uses a CDN to pre-position movie files in ISP data centers — your stream comes from a server &lt;50ms away.</div></div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--routing)">
+        <div class="badge">7</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">⚖️</span><span class="card-title">LOAD BALANCER</span><span class="card-sub">Traffic Distribution</span><span class="card-cat">Routing</span></div>
+          <p class="card-desc">Distributes requests across multiple server instances</p>
+          <details class="expand-details">
+            <summary class="expand-toggle">Show details <span class="chevron">›</span></summary>
+            <div class="expand-content">
+              <div class="exp-block"><span class="exp-label">What is it?</span><p>A load balancer distributes incoming HTTP requests across a pool of backend server instances. It ensures no single server becomes a bottleneck and provides high availability.</p></div>
+              <div class="exp-block"><span class="exp-label">How it works</span><p>Common algorithms: Round Robin (rotate through servers evenly), Least Connections (send to server with fewest active connections), IP Hash (same client always hits same server — useful for sessions), Weighted Round Robin (powerful servers get more traffic).</p></div>
+              <div class="exp-block">
+                <span class="exp-label">Key details</span>
+                <ol class="exp-list">
+                  <li><span class="num">1</span>Layer 4 LB (TCP/UDP): fast, works on IP+port, no HTTP awareness. Layer 7 LB (HTTP): can route based on URL path, headers, cookies.</li>
+                  <li><span class="num">2</span>Health checks: LB pings /health every few seconds. If a server fails, it's removed from the pool automatically.</li>
+                  <li><span class="num">3</span>Sticky sessions: uses cookies to route same user to same server (needed for stateful apps without shared session store).</li>
+                  <li><span class="num">4</span>Popular: AWS ALB/NLB, HAProxy, NGINX, Traefik, Caddy. Kubernetes uses Services + Ingress Controllers.</li>
+                </ol>
+              </div>
+              <div class="exp-block last"><span class="exp-label">Real example</span><div class="exp-example">You have 10 app servers each handling 1000 req/s. LB gives you 10,000 req/s total capacity with automatic failover.</div></div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--routing)">
+        <div class="badge">8</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">🚪</span><span class="card-title">API GATEWAY</span><span class="card-sub">Request Orchestration</span><span class="card-cat">Routing</span></div>
+          <p class="card-desc">Auth, rate limiting, routing, request transformation</p>
+          <details class="expand-details">
+            <summary class="expand-toggle">Show details <span class="chevron">›</span></summary>
+            <div class="expand-content">
+              <div class="exp-block"><span class="exp-label">What is it?</span><p>An API Gateway is the single entry point for all API calls in a microservices architecture. It abstracts the internal service topology from clients and handles cross-cutting concerns.</p></div>
+              <div class="exp-block"><span class="exp-label">How it works</span><p>Request hits gateway → Authentication middleware verifies JWT/API key → Rate limiter checks quota → Request transformer normalizes data → Router determines which microservice to call → Response aggregator may combine responses from multiple services → Returns to client.</p></div>
+              <div class="exp-block">
+                <span class="exp-label">Key details</span>
+                <ol class="exp-list">
+                  <li><span class="num">1</span>Authentication: validates JWT tokens (checks signature, expiry, claims) or API keys before forwarding to services.</li>
+                  <li><span class="num">2</span>Rate limiting: enforces per-user or per-IP quotas. Uses Redis counters (sliding window / token bucket algorithms).</li>
+                  <li><span class="num">3</span>Request/response transformation: renames fields, strips internal headers, adds CORS headers, converts XML↔JSON.</li>
+                  <li><span class="num">4</span>Circuit breaker pattern: if a downstream service fails repeatedly, the gateway "opens the circuit" and returns cached/default responses.</li>
+                </ol>
+              </div>
+              <div class="exp-block last"><span class="exp-label">Real example</span><div class="exp-example">AWS API Gateway, Kong, NGINX API Gateway, Apigee, Traefik. Stripe's API gateway handles millions of requests per day.</div></div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--server)">
+        <div class="badge">9</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">🔄</span><span class="card-title">REVERSE PROXY</span><span class="card-sub">NGINX / Caddy</span><span class="card-cat">Server</span></div>
+          <p class="card-desc">Handles connections efficiently, forwards to app servers</p>
+          <details class="expand-details">
+            <summary class="expand-toggle">Show details <span class="chevron">›</span></summary>
+            <div class="expand-content">
+              <div class="exp-block"><span class="exp-label">What is it?</span><p>A reverse proxy sits in front of web servers and forwards client requests to them. From the client's perspective, it appears to be the origin server.</p></div>
+              <div class="exp-block"><span class="exp-label">How it works</span><p>NGINX accepts thousands of concurrent connections using an event-driven, asynchronous architecture (very low memory per connection). It handles SSL termination, serves static files from disk directly, and proxies dynamic requests to app servers (Node.js, Django, etc.) via HTTP or Unix socket.</p></div>
+              <div class="exp-block">
+                <span class="exp-label">Key details</span>
+                <ol class="exp-list">
+                  <li><span class="num">1</span>Handles static file serving 10-100x faster than app servers — NGINX serves files directly from disk, bypassing Python/Node overhead.</li>
+                  <li><span class="num">2</span>SSL/TLS termination: NGINX handles encryption so your app server only receives plain HTTP (simpler and faster).</li>
+                  <li><span class="num">3</span>Compression: gzip/brotli compresses responses before sending to clients (reduces bandwidth by 60-80%).</li>
+                  <li><span class="num">4</span>Connection upgrades: handles WebSocket upgrades (HTTP → WS), HTTP/2 with multiplexing, long-polling.</li>
+                </ol>
+              </div>
+              <div class="exp-block last"><span class="exp-label">Real example</span><div class="exp-example">NGINX can handle 10,000 concurrent connections using ~2.5MB RAM. A Node.js server would need ~250MB for the same.</div></div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--server)">
+        <div class="badge">10</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">🕸️</span><span class="card-title">SERVICE MESH</span><span class="card-sub">Sidecar Proxy</span><span class="card-cat">Server</span></div>
+          <p class="card-desc">Handles microservice-to-service communication (Istio/Linkerd)</p>
+          <details class="expand-details">
+            <summary class="expand-toggle">Show details <span class="chevron">›</span></summary>
+            <div class="expand-content">
+              <div class="exp-block"><span class="exp-label">What is it?</span><p>A service mesh manages communication between microservices inside a cluster. Each service gets a sidecar proxy (Envoy) injected alongside it that handles all network traffic.</p></div>
+              <div class="exp-block"><span class="exp-label">How it works</span><p>All inter-service HTTP/gRPC traffic goes through sidecar proxies. The control plane (Istio Pilot) pushes configuration to all sidecars. This gives you observability (traces, metrics), traffic management (canary deploys, retries), and mTLS between all services — without changing application code.</p></div>
+              <div class="exp-block">
+                <span class="exp-label">Key details</span>
+                <ol class="exp-list">
+                  <li><span class="num">1</span>mTLS (mutual TLS): every service-to-service call is encrypted and both sides prove their identity using certificates.</li>
+                  <li><span class="num">2</span>Canary deployments: route 5% of traffic to new service version, monitor error rates, gradually increase if healthy.</li>
+                  <li><span class="num">3</span>Automatic retries and timeouts: if Service B is slow, the sidecar retries automatically without Service A knowing.</li>
+                  <li><span class="num">4</span>Distributed tracing: each request gets a trace ID that flows through all services — you can see the full call graph in Jaeger/Zipkin.</li>
+                </ol>
+              </div>
+              <div class="exp-block last"><span class="exp-label">Real example</span><div class="exp-example">Kubernetes + Istio: deploy 1000 microservices, all with automatic mTLS, retries, and tracing — zero extra code.</div></div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--server)">
+        <div class="badge">11</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">⚙️</span><span class="card-title">APP SERVER</span><span class="card-sub">Business Logic</span><span class="card-cat">Server</span></div>
+          <p class="card-desc">Executes your application code and processes the request</p>
+          <details class="expand-details">
+            <summary class="expand-toggle">Show details <span class="chevron">›</span></summary>
+            <div class="expand-content">
+              <div class="exp-block"><span class="exp-label">What is it?</span><p>The application server is where your actual code runs. It processes the business logic: validates input, calls databases, performs calculations, enforces business rules, and constructs the response.</p></div>
+              <div class="exp-block"><span class="exp-label">How it works</span><p>Request arrives (HTTP) → Framework router matches URL to handler → Middleware chain (auth, logging, body parsing) → Controller/Handler runs business logic → Calls DB/Cache/external APIs → Serializes response (JSON/HTML) → Returns HTTP response.</p></div>
+              <div class="exp-block">
+                <span class="exp-label">Key details</span>
+                <ol class="exp-list">
+                  <li><span class="num">1</span>Frameworks: Express.js (Node), Django/FastAPI (Python), Spring Boot (Java), Laravel (PHP), Rails (Ruby), Gin (Go).</li>
+                  <li><span class="num">2</span>Runs in multiple worker processes or threads (or async event loop for Node/FastAPI) to handle concurrent requests.</li>
+                  <li><span class="num">3</span>Stateless by design — no session data stored locally. Auth state in JWTs or external session stores (Redis).</li>
+                  <li><span class="num">4</span>Health check endpoints (/health, /ready) let the load balancer know if the instance is alive and ready for traffic.</li>
+                </ol>
+              </div>
+              <div class="exp-block last"><span class="exp-label">Real example</span><div class="exp-example">FastAPI: request → Pydantic validation → SQLAlchemy DB query → Pydantic serialization → JSON response in &lt;10ms.</div></div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--data)">
+        <div class="badge">12</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">⚡</span><span class="card-title">CACHE LAYER</span><span class="card-sub">Redis / Memcached</span><span class="card-cat">Data</span></div>
+          <p class="card-desc">In-memory data store for fast reads (microseconds vs milliseconds)</p>
+          <details class="expand-details">
+            <summary class="expand-toggle">Show details <span class="chevron">›</span></summary>
+            <div class="expand-content">
+              <div class="exp-block"><span class="exp-label">What is it?</span><p>A cache is an in-memory key-value store that holds frequently accessed data. Reading from cache takes ~0.1ms vs ~10ms for a database query — 100x faster. Redis is by far the most popular.</p></div>
+              <div class="exp-block"><span class="exp-label">How it works</span><p>Cache-aside pattern: app checks cache first. Cache hit → return cached value. Cache miss → query DB, store result in cache with TTL, return value. Write-through: write to cache and DB simultaneously. Write-behind: write to cache, async write to DB later.</p></div>
+              <div class="exp-block">
+                <span class="exp-label">Key details</span>
+                <ol class="exp-list">
+                  <li><span class="num">1</span>TTL (Time-To-Live): cached values automatically expire after N seconds, preventing stale data from being served forever.</li>
+                  <li><span class="num">2</span>Cache eviction policies: LRU (Least Recently Used) — when cache is full, remove the entry accessed longest ago.</li>
+                  <li><span class="num">3</span>Redis supports rich data types: Strings, Lists, Sets, Sorted Sets, Hashes, Streams — not just simple key-value.</li>
+                  <li><span class="num">4</span>Redis Pub/Sub: can also be used as a message broker for real-time features like live notifications and presence.</li>
+                </ol>
+              </div>
+              <div class="exp-block last"><span class="exp-label">Real example</span><div class="exp-example">Twitter caches your home timeline in Redis. Without cache, rendering your feed would require ~100 DB queries per load.</div></div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--data)">
+        <div class="badge">13</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">🗄️</span><span class="card-title">DATABASE</span><span class="card-sub">PostgreSQL / MySQL / MongoDB</span><span class="card-cat">Data</span></div>
+          <p class="card-desc">Persistent, reliable storage for all application data</p>
+          <details class="expand-details">
+            <summary class="expand-toggle">Show details <span class="chevron">›</span></summary>
+            <div class="expand-content">
+              <div class="exp-block"><span class="exp-label">What is it?</span><p>The database is the source of truth for all persistent data. Unlike cache, data here survives server restarts. Relational databases (PostgreSQL, MySQL) store data in tables with relationships. NoSQL (MongoDB) stores documents.</p></div>
+              <div class="exp-block"><span class="exp-label">How it works</span><p>App server sends SQL query (or ORM-generated query) → DB parses and optimizes query plan → Executor reads/writes from storage engine (B-tree/LSM-tree indexes) → Returns result set → App server maps rows to objects.</p></div>
+              <div class="exp-block">
+                <span class="exp-label">Key details</span>
+                <ol class="exp-list">
+                  <li><span class="num">1</span>Indexes: B-tree index on a column makes lookup O(log n) instead of O(n) full table scan. Critical for performance at scale.</li>
+                  <li><span class="num">2</span>ACID transactions: Atomicity, Consistency, Isolation, Durability. Your bank transfer either fully succeeds or fully rolls back.</li>
+                  <li><span class="num">3</span>Read replicas: write to primary, read from replicas. Scales read capacity horizontally. Replication lag can be 0-100ms.</li>
+                  <li><span class="num">4</span>Connection pooling (PgBouncer): DB connections are expensive. Pool reuses a small number of connections across many app requests.</li>
+                </ol>
+              </div>
+              <div class="exp-block last"><span class="exp-label">Real example</span><div class="exp-example">PostgreSQL with proper indexes handles 10,000+ queries/sec on a single instance. Without indexes, 100 queries/sec.</div></div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--async)">
+        <div class="badge">14</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">📬</span><span class="card-title">MESSAGE QUEUE</span><span class="card-sub">Kafka / RabbitMQ / SQS</span><span class="card-cat">Async</span></div>
+          <p class="card-desc">Decouples services; handles async background tasks</p>
+          <details class="expand-details">
+            <summary class="expand-toggle">Show details <span class="chevron">›</span></summary>
+            <div class="expand-content">
+              <div class="exp-block"><span class="exp-label">What is it?</span><p>A message queue is a buffer between services. Instead of doing slow work synchronously (sending email, processing image, generating report), the app publishes a message to the queue and immediately returns to the user. Workers consume and process messages asynchronously.</p></div>
+              <div class="exp-block"><span class="exp-label">How it works</span><p>Producer (App Server) publishes message to queue/topic → Queue durably stores messages → Consumer (Worker) polls and processes messages → Consumer ACKs message on success (removes from queue) or NACKs on failure (requeues for retry).</p></div>
+              <div class="exp-block">
+                <span class="exp-label">Key details</span>
+                <ol class="exp-list">
+                  <li><span class="num">1</span>At-least-once delivery: Kafka/SQS guarantee each message is delivered at least once. Your consumer must be idempotent (handling duplicate processing safely).</li>
+                  <li><span class="num">2</span>Dead Letter Queue (DLQ): after N failed retries, messages go to DLQ for manual inspection and debugging.</li>
+                  <li><span class="num">3</span>Kafka partitions allow parallel consumption: 10 partitions = 10 consumers can process simultaneously, giving horizontal scale.</li>
+                  <li><span class="num">4</span>Use cases: email/SMS sending, image resizing, PDF generation, payment processing, ML model inference, audit log writes.</li>
+                </ol>
+              </div>
+              <div class="exp-block last"><span class="exp-label">Real example</span><div class="exp-example">Uber: when you book a ride, the API returns instantly. Driver matching, notifications, surge pricing all happen via queues.</div></div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--async)">
+        <div class="badge">15</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">👷</span><span class="card-title">BACKGROUND WORKERS</span><span class="card-sub">Celery / BullMQ / Sidekiq</span><span class="card-cat">Async</span></div>
+          <p class="card-desc">Consumes queue messages and executes async jobs</p>
+          <details class="expand-details">
+            <summary class="expand-toggle">Show details <span class="chevron">›</span></summary>
+            <div class="expand-content">
+              <div class="exp-block"><span class="exp-label">What is it?</span><p>Background workers are separate processes that consume tasks from the message queue. They run independently from the web servers, enabling CPU-intensive or slow operations without blocking HTTP responses.</p></div>
+              <div class="exp-block"><span class="exp-label">How it works</span><p>Worker process starts → connects to queue (Redis/RabbitMQ/SQS) → polls for jobs → deserializes job data → executes task function (send email, resize image, etc.) → marks job complete → polls again. Multiple workers run in parallel.</p></div>
+              <div class="exp-block">
+                <span class="exp-label">Key details</span>
+                <ol class="exp-list">
+                  <li><span class="num">1</span>Celery (Python) + Redis/RabbitMQ: most popular combo for Python apps. BullMQ for Node.js, Sidekiq for Ruby.</li>
+                  <li><span class="num">2</span>Job priorities: urgent jobs (password reset email) skip the queue via priority lanes over bulk jobs (weekly newsletter).</li>
+                  <li><span class="num">3</span>Scheduled jobs (cron-like): Celery Beat, pg-boss, Agenda — run tasks on a schedule (generate daily reports at 2am).</li>
+                  <li><span class="num">4</span>Monitoring: Flower (Celery), Bull Board (BullMQ) — dashboards showing queued/active/failed jobs in real-time.</li>
+                </ol>
+              </div>
+              <div class="exp-block last"><span class="exp-label">Real example</span><div class="exp-example">When you sign up on any website, the HTTP response returns in 200ms. The welcome email arrives seconds later — sent by a worker.</div></div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--async)">
+        <div class="badge">16</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">🔌</span><span class="card-title">EXTERNAL APIS</span><span class="card-sub">Third-party Services</span><span class="card-cat">Async</span></div>
+          <p class="card-desc">Payment gateways, email, SMS, OAuth, AI services</p>
+          <details class="expand-details">
+            <summary class="expand-toggle">Show details <span class="chevron">›</span></summary>
+            <div class="expand-content">
+              <div class="exp-block"><span class="exp-label">What is it?</span><p>Most apps integrate with third-party APIs: Stripe for payments, SendGrid for email, Twilio for SMS, AWS S3 for file storage, Google OAuth for login, OpenAI for AI features. Your app server calls these as an HTTP client.</p></div>
+              <div class="exp-block"><span class="exp-label">How it works</span><p>App server makes outbound HTTP request to external API with API key in Authorization header → External service processes request → Returns JSON response → App server handles success/error → Often these calls happen in background workers to avoid blocking the main request.</p></div>
+              <div class="exp-block">
+                <span class="exp-label">Key details</span>
+                <ol class="exp-list">
+                  <li><span class="num">1</span>Circuit breaker pattern: if Stripe API is down, stop sending requests (circuit open), use cached/fallback response, retry after timeout.</li>
+                  <li><span class="num">2</span>Webhook callbacks: instead of polling, register a URL with the third party. They POST to your URL when an event happens (payment succeeded).</li>
+                  <li><span class="num">3</span>Rate limits: external APIs have per-minute/day limits. Implement exponential backoff + jitter for retries.</li>
+                  <li><span class="num">4</span>Secret management: API keys stored in environment variables or secret stores (AWS Secrets Manager, HashiCorp Vault) — never in code.</li>
+                </ol>
+              </div>
+              <div class="exp-block last"><span class="exp-label">Real example</span><div class="exp-example">Checkout flow: App → Stripe API (charge card) → Stripe webhook → App (update order status) → SendGrid (send receipt email).</div></div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--response)">
+        <div class="badge">17</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">↩️</span><span class="card-title">RESPONSE PATH</span><span class="card-sub">Back to Browser</span><span class="card-cat">Response</span></div>
+          <p class="card-desc">Response travels back through the same stack in reverse</p>
+          <details class="expand-details">
+            <summary class="expand-toggle">Show details <span class="chevron">›</span></summary>
+            <div class="expand-content">
+              <div class="exp-block"><span class="exp-label">What is it?</span><p>The HTTP response (status code + headers + body) travels back through the same layers in reverse order. Each layer may add headers, compress data, or apply transformations before passing it back to the client.</p></div>
+              <div class="exp-block"><span class="exp-label">How it works</span><p>App Server builds response → NGINX compresses (gzip) and adds headers → API Gateway adds CORS headers → Load Balancer forwards → CDN may cache the response for next users → TLS encrypts → TCP segments delivery → Browser receives, decompresses, parses, renders.</p></div>
+              <div class="exp-block">
+                <span class="exp-label">Key details</span>
+                <ol class="exp-list">
+                  <li><span class="num">1</span>HTTP status codes: 200 OK, 201 Created, 301/302 Redirect, 400 Bad Request, 401 Unauthorized, 403 Forbidden, 404 Not Found, 500 Internal Server Error.</li>
+                  <li><span class="num">2</span>Response headers set browser behavior: Cache-Control, Set-Cookie, Content-Type, Content-Encoding (gzip), CORS headers (Access-Control-Allow-Origin).</li>
+                  <li><span class="num">3</span>TTFB (Time To First Byte): how long from request send to first byte of response received. Key performance metric.</li>
+                  <li><span class="num">4</span>Browser rendering: HTML → DOM, CSS → CSSOM, combined → Render Tree → Layout → Paint → Composite. First Contentful Paint (FCP) is the visible milestone.</li>
+                </ol>
+              </div>
+              <div class="exp-block last"><span class="exp-label">Real example</span><div class="exp-example">curl -I example.com shows all response headers. Chrome DevTools Network tab shows TTFB, download time, and waterfall for every asset.</div></div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ================= DIVIDER ================= -->
+  <div class="divider">
+    <div class="divider-line"></div>
+    <h2>See It In Action</h2>
+    <p>Same 17 steps. This time, with a real product, real numbers, and real code.</p>
+    <span class="netflix-word">NETFLIX</span>
+  </div>
+
+  <!-- ================= PART 2: NETFLIX EXAMPLE ================= -->
+  <section class="section netflix-theme" id="netflix">
+    <div class="section-head">
+      <span class="tag">Part 2</span>
+      <h2>The Netflix Example — "Searching for a Movie"</h2>
+      <p>Let's make this concrete. You open Netflix and search for "Stranger Things" from your laptop in a coffee shop. Here's the exact same journey, step by step.</p>
+    </div>
+
+    <div class="timeline">
+
+      <div class="step" style="--c:var(--client)">
+        <div class="badge">1</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">🌐</span><span class="card-title">Browser Client</span><span class="card-cat">Client</span></div>
+          <p class="card-desc">You type "Stranger Things" in the Netflix search bar and press Enter. The browser builds an HTTPS request. It's ready — but it has a name, not an address.</p>
+          <div class="code-window">
+            <div class="code-header"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="code-label">request</span></div>
+            <pre class="code-body">GET https://www.netflix.com/search?q=stranger+things</pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--network)">
+        <div class="badge">2</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">🔍</span><span class="card-title">DNS Lookup</span><span class="card-cat">Network</span></div>
+          <p class="card-desc">The browser asks <span class="quote">"Where is netflix.com?"</span> The DNS system responds: <code>54.237.154.123</code>. Now the browser knows the physical server location.</p>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--network)">
+        <div class="badge">3</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">🤝</span><span class="card-title">TCP Handshake (SYN → SYN/ACK → ACK)</span><span class="card-cat">Network</span></div>
+          <p class="card-desc">Browser and Netflix's server do the three-way handshake. A reliable connection is established.</p>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--security)">
+        <div class="badge">4</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">🔐</span><span class="card-title">TLS Handshake</span><span class="card-cat">Security</span></div>
+          <p class="card-desc">Browser and server negotiate encryption. Certificates are exchanged. The browser confirms: <span class="quote">"Yes, this is really Netflix."</span> From now on, all data is encrypted — no one at the coffee shop can see what you're searching for.</p>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--security)">
+        <div class="badge">5</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">🛡️</span><span class="card-title">Firewall / WAF</span><span class="card-cat">Security</span></div>
+          <p class="card-desc">The encrypted request hits Netflix's network. The firewall checks: <span class="quote">"Is this a known attacker? Is the data well-formed?"</span> It passes. You're not a bot.</p>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--edge)">
+        <div class="badge">6</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">☁️</span><span class="card-title">CDN / Edge</span><span class="card-cat">Edge</span></div>
+          <p class="card-desc">The request arrives at a CDN server near your city. The CDN checks: <span class="quote">"Do I have search results for 'Stranger Things' cached?"</span> Probably not — search results are personalized. It forwards the request to Netflix's main data center.</p>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--routing)">
+        <div class="badge">7</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">⚖️</span><span class="card-title">Load Balancer</span><span class="card-cat">Routing</span></div>
+          <p class="card-desc">The request arrives at Netflix's data center. The load balancer looks at its 500 app servers and picks one: <span class="quote">"Server 342 has the fewest active connections. Send it there."</span></p>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--routing)">
+        <div class="badge">8</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">🚪</span><span class="card-title">API Gateway</span><span class="card-cat">Routing</span></div>
+          <p class="card-desc">The request hits the API Gateway. The gateway reads the path <code>/search</code> and knows: <span class="quote">"This goes to the Search Service."</span> It also checks your session cookie to confirm you're logged in. You are. Forwarded.</p>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--server)">
+        <div class="badge">9</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">🔄</span><span class="card-title">Reverse Proxy (NGINX)</span><span class="card-cat">Server</span></div>
+          <p class="card-desc">NGINX receives the request. <span class="quote">"Is this search result cached?"</span> No — personalized data isn't cached here. <span class="quote">"Let me decompress it and pass it to the Node.js app server."</span></p>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--server)">
+        <div class="badge">10</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">🕸️</span><span class="card-title">Service Mesh Sidecar</span><span class="card-cat">Server</span></div>
+          <p class="card-desc">The sidecar proxy notes: <span class="quote">"Request entering the Search Service. Let me track its latency and make sure the service is healthy."</span></p>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--server)">
+        <div class="badge">11</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">⚙️</span><span class="card-title">App Server (Node.js)</span><span class="card-cat">Server</span></div>
+          <p class="card-desc">Your Node.js code finally gets the request:</p>
+          <div class="code-window">
+            <div class="code-header"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="code-label">search.route.js</span></div>
+            <pre class="code-body"><span class="fn">app.get</span>(<span class="str">'/search'</span>, <span class="kw">async</span> (req, res) =&gt; {
+    <span class="kw">const</span> query = req.query.q;  <span class="com">// "stranger things"</span>
+    <span class="kw">const</span> userId = req.user.id; <span class="com">// your user ID</span>
+
+    <span class="com">// Step 12: Check cache first</span>
+    <span class="kw">const</span> cached = <span class="kw">await</span> redis.get(<span class="str">`search:${userId}:${query}`</span>);
+    <span class="kw">if</span> (cached) <span class="kw">return</span> res.json(JSON.parse(cached));
+
+    <span class="com">// Step 13: Cache miss — hit the database</span>
+    <span class="kw">const</span> results = <span class="kw">await</span> db.query(<span class="str">`
+        SELECT * FROM movies 
+        WHERE title ILIKE '%stranger things%'
+        ORDER BY popularity DESC
+        LIMIT 20
+    `</span>);
+
+    <span class="com">// Cache it for next time</span>
+    <span class="kw">await</span> redis.set(<span class="str">`search:${userId}:${query}`</span>, JSON.stringify(results), <span class="str">'EX'</span>, 300);
+
+    <span class="com">// Step 14 (async): Publish to message queue</span>
+    <span class="com">// "Log this search for recommendations later"</span>
+    <span class="kw">await</span> queue.publish(<span class="str">'search.log'</span>, { userId, query, timestamp: Date.now() });
+
+    <span class="com">// Send the response</span>
+    res.json(results);
+});</pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--data)">
+        <div class="badge">12</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">⚡</span><span class="card-title">Cache Layer (Redis)</span><span class="card-cat">Data</span></div>
+          <p class="card-desc"><span class="quote">"Search cache for 'stranger things'? Not found. Moving on."</span></p>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--data)">
+        <div class="badge">13</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">🗄️</span><span class="card-title">Database (PostgreSQL)</span><span class="card-cat">Data</span></div>
+          <p class="card-desc">The database runs the query. It finds 3 matching results: "Stranger Things" (seasons 1–4), "Stranger Things: The Game", and a documentary "The Strange World Of...". It returns the data in ~20ms.</p>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--async)">
+        <div class="badge">14</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">📬</span><span class="card-title">Message Queue (Kafka)</span><span class="card-cat">Async</span></div>
+          <p class="card-desc">After the response is sent, the Node.js app publishes a message: <span class="quote">"User 12345 searched for 'stranger things'."</span> This message waits in the queue.</p>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--async)">
+        <div class="badge">15</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">👷</span><span class="card-title">Background Workers</span><span class="card-cat">Async</span></div>
+          <p class="card-desc">A separate worker process picks up that message and:</p>
+          <ul class="sub">
+            <li>Updates the trending searches dashboard</li>
+            <li>Refines your recommendation algorithm</li>
+            <li>Logs the search for analytics</li>
+          </ul>
+          <p class="card-desc" style="margin-top:8px;">All of this happens after you get your response — you never wait for it.</p>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--async)">
+        <div class="badge">16</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">🔌</span><span class="card-title">External APIs (maybe)</span><span class="card-cat">Async</span></div>
+          <p class="card-desc">If Netflix uses a third-party content moderation API to filter search results for age-appropriate content, it calls that here. Or if it uses an AI service to suggest related searches. Not always needed, but available.</p>
+        </div>
+      </div>
+
+      <div class="step" style="--c:var(--response)">
+        <div class="badge">17</div>
+        <div class="card">
+          <div class="card-top"><span class="card-icon">↩️</span><span class="card-title">Response Path (continued)</span><span class="card-cat">Response</span></div>
+          <p class="card-desc">The response travels back:</p>
+          <ul class="sub">
+            <li><b>Service mesh:</b> "Response leaving the Search Service. Latency recorded: 45ms."</li>
+            <li><b>Reverse proxy:</b> NGINX compresses the JSON response with gzip (reduces size by 70%), caches it briefly for identical requests, and sends it back.</li>
+            <li><b>API Gateway:</b> The gateway adds some security headers and passes the response through.</li>
+            <li><b>Load Balancer:</b> Routes the response to the correct client connection.</li>
+            <li><b>CDN / Edge:</b> "I'll cache this search result for 5 minutes in case nearby users search the same thing."</li>
+            <li><b>Firewall:</b> Passes through without issue.</li>
+            <li><b>TLS:</b> Encrypted the whole way back.</li>
+            <li><b>TCP:</b> Arrives in order.</li>
+            <li><b>Browser:</b> Receives the JSON, renders the search results. You see the "Stranger Things" poster.</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="stat-box">
+      <span class="label">Total round trip, click to poster on screen</span>
+      <span class="value">~200–400ms</span>
+    </div>
+  </section>
+
+  <footer>
+    17 steps, one request. Once you can see this shape everywhere — in Netflix, in Instagram, in the API you're building this week — you stop memorizing architecture diagrams and start <b>recognizing patterns</b>.
+  </footer>
+
+  <button id="toTop" title="Back to top">↑</button>
+
+<script>
+  // Theme toggle
+  try {
+    const themeBtn = document.getElementById('themeBtn');
+    let isLight = false;
+    if (themeBtn) {
+      themeBtn.addEventListener('click', ()=>{
+        isLight = !isLight;
+        document.body.setAttribute('data-theme', isLight ? 'light' : 'dark');
+        themeBtn.textContent = isLight ? '🌙' : '☀️';
+      });
+    }
+  } catch(e){ console.error(e); }
+
+  // Scroll progress bar
+  try {
+    const fill = document.getElementById('progressFill');
+    function updateProgress(){
+      const h = document.documentElement;
+      const scrolled = h.scrollTop;
+      const max = h.scrollHeight - h.clientHeight;
+      if (fill) fill.style.width = (max > 0 ? (scrolled / max) * 100 : 0) + '%';
+    }
+    document.addEventListener('scroll', updateProgress, { passive:true });
+    updateProgress();
+  } catch(e){ console.error(e); }
+
+  // Fade-in on scroll — progressive enhancement only.
+  // Content is fully visible by default (see CSS); this just adds a nicer entrance
+  // if it succeeds. Any failure here can never hide the page.
+  try {
+    document.body.classList.add('anim-ready');
+    const io = new IntersectionObserver((entries)=>{
+      entries.forEach(e=>{
+        if(e.isIntersecting){ e.target.classList.add('in-view'); io.unobserve(e.target); }
+      });
+    }, { threshold:0.1 });
+    document.querySelectorAll('.step').forEach(el=>io.observe(el));
+  } catch(e){ console.error(e); }
+
+  // Safety net: whatever happens above, guarantee every step is visible shortly after load.
+  setTimeout(()=>{
+    document.querySelectorAll('.step').forEach(el=>el.classList.add('in-view'));
+  }, 1200);
+
+  // Back to top
+  try {
+    const toTop = document.getElementById('toTop');
+    if (toTop) {
+      document.addEventListener('scroll', ()=>{
+        toTop.classList.toggle('show', window.scrollY > 500);
+      }, { passive:true });
+      toTop.addEventListener('click', ()=> window.scrollTo({top:0, behavior:'smooth'}));
+    }
+  } catch(e){ console.error(e); }
+</script>
+</body>
+</html>
