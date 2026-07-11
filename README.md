@@ -15,3 +15,6 @@ specific request — **Netflix, searching for "Stranger Things"** — with real
 system behavior, real numbers, and real code.
 
 🔗 **[View it live](https://sadidgit01.github.io/how-the-internet-works/)**
+
+
+<img width="2752" height="1536" alt="Seventeen_Layer_Request_Lifecycle" src="https://github.com/user-attachments/assets/37001848-cd8b-4767-be00-54769f79c3d0" />
