@@ -17,5 +17,6 @@ system behavior, real numbers, and real code.
 🔗 **[View it live](https://sadidgit01.github.io/how-the-internet-works/)**
 
 
-<img width="2752" height="1502" alt="Seventeen_Layer_Request_Lifecycle" src="https://github.com/user-attachments/assets/d7e3a9ab-dd55-4741-8c47-6f59f3c0366b" />
+<img width="2752" height="1502" alt="Journey_of_a_Web_Request" src="https://github.com/user-attachments/assets/8a52301e-bcf4-4620-af7e-09145388ca3e" />
+
 
